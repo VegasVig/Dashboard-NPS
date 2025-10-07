@@ -1,262 +1,309 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NPS - Vegas Vigilância</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard NPS - Vegas Vigilância</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #000;
+            --card-bg: #111;
+            --primary: #484a48;
+            --text: #fff;
+            --subtext: #ccc;
+            --accent: #ffcc00;
+        }
 
-    body {
-      background-color: #000;
-      color: white;
-    }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    header {
-      background: #0a0a0a;
-      color: #fff;
-      padding: 15px 25px;
-      text-align: center;
-      border-bottom: 2px solid #5f6463;
-    }
+        body {
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
 
-    header img {
-      width: 100%;
-      height: 60%;
-    }
+        header {
+            background-color: #0a0a0a;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #5f6463;
+        }
 
-    .container {
-      max-width: 550px;
-      margin: 20px auto;
-      background: #111;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0px 0px 12px rgba(0, 255, 204, 0.15);
-      text-align: center;
-    }
+        header img {
+            width: 100px;
+            height: auto;
+            margin-bottom: 10px;
+        }
 
-    .container h2 {
-      margin-bottom: 10px;
-      font-size: 22px;
-      color: #f8fbfa;
-    }
+        h1 {
+            font-size: 20px;
+            color: var(--accent);
+        }
 
-    .container p {
-      font-size: 15px;
-      color: white;
-      margin-bottom: 20px;
-    }
+        .container {
+            padding: 20px;
+            max-width: 1100px;
+            margin: auto;
+        }
 
-    .notas {
-      display: flex;
-      justify-content: center;
-      gap: 5px;
-      margin-bottom: 10px;
-      flex-wrap: nowrap;
-    }
+        .grafico,
+        .comentarios-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.15);
+        }
 
-    .nota {
-      width: 35px;
-      height: 35px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      color: #000;
-      user-select: none;
-      transition: transform 0.2s, opacity 0.2s;
-    }
+        .top-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
 
-    .nota[data-value="0"], .nota[data-value="1"], .nota[data-value="2"] { background: #ff4d4d; }
-    .nota[data-value="3"], .nota[data-value="4"] { background: #ff6a00; }
-    .nota[data-value="5"], .nota[data-value="6"] { background: #ffcc00; }
-    .nota[data-value="7"], .nota[data-value="8"] { background: #c6ff00; }
-    .nota[data-value="9"], .nota[data-value="10"] { background: #4CAF50; }
+        .top-bar input,
+        .top-bar select {
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: white;
+        }
 
-    .nota.selected {
-      outline: 3px solid #464a49;
-      transform: scale(1.1);
-    }
+        .nps-box {
+            background: #1a1a1a;
+            padding: 15px;
+            border-left: 5px solid var(--primary);
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
 
-    .legendas {
-      display: flex;
-      justify-content: center;
-      font-size: 11px;
-      color: white;
-      margin-bottom: 20px;
-    }
+        canvas {
+            max-width: 100%;
+        }
 
-    .legenda {
-      text-align: center;
-      width: 20%;
-      padding: 2px;
-    }
+        .comentarios-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
 
-    .legenda:nth-child(1) { color: #ff4d4d; }
-    .legenda:nth-child(2) { color: #ff6a00; }
-    .legenda:nth-child(3) { color: #ffcc00; }
-    .legenda:nth-child(4) { color: #c6ff00; }
-    .legenda:nth-child(5) { color: #4CAF50; }
+        .card-comentario {
+            background: #1a1a1a;
+            border-left: 5px solid var(--primary);
+            border-radius: 8px;
+            padding: 15px;
+            flex: 1 1 300px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
 
-    form {
-      color: white;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      text-align: left;
-    }
+        .card-comentario:hover {
+            transform: scale(1.02);
+        }
 
-    input, textarea, select {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #333;
-      border-radius: 6px;
-      background: #1a1a1a;
-      color: white;
-      font-size: 14px;
-    }
+        .nota {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
 
-    textarea {
-      resize: none;
-      min-height: 80px;
-    }
+        .nome {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
 
-    label {
-      font-size: 14px;
-      color: white;
-      font-weight: bold;
-    }
+        .comentario {
+            font-style: italic;
+            color: var(--subtext);
+            margin-bottom: 10px;
+        }
 
-    button {
-      background: #404342;
-      color: #000;
-      padding: 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
+        .extras {
+            font-size: 12px;
+            color: var(--subtext);
+        }
 
-    button:hover {
-      background: #3f4242;
-    }
+        footer {
+            background: #0a0a0a;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            margin-top: 40px;
+            font-size: 13px;
+            border-top: 2px solid #5f6463;
+        }
 
-    footer {
-      background: #0a0a0a;
-      color: white;
-      text-align: center;
-      padding: 15px;
-      margin-top: 40px;
-      font-size: 13px;
-    }
-  </style>
+        @media (max-width: 600px) {
+            .card-comentario {
+                flex: 1 1 100%;
+            }
+
+            .top-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
 </head>
+
 <body>
-  <header>
-    <img src="./assets/logovegas.jpg" alt="Logo Vegas Vigilância">
-  </header>
+    <header>
+        <img src="./assets/logovegas.jpg" alt="Logo Vegas Vigilância">
+        <h1>Dashboard - Comentários e Notas NPS</h1>
+    </header>
 
-  <div class="container">
-    <h2>Sua opinião faz a diferença</h2>
-    <p>De 1 a 10, o quanto você indicaria a Vegas Vigilância para um amigo?</p>
+    <div class="container">
+        <div class="grafico">
+            <h2 style="color:#fff;">Distribuição das Notas</h2>
+            <canvas id="graficoPizza"></canvas>
+        </div>
 
-    <div class="notas" id="notas">
-      <div class="nota" data-value="1">1</div>
-      <div class="nota" data-value="2">2</div>
-      <div class="nota" data-value="3">3</div>
-      <div class="nota" data-value="4">4</div>
-      <div class="nota" data-value="5">5</div>
-      <div class="nota" data-value="6">6</div>
-      <div class="nota" data-value="7">7</div>
-      <div class="nota" data-value="8">8</div>
-      <div class="nota" data-value="9">9</div>
-      <div class="nota" data-value="10">10</div>
+        <div class="comentarios-section">
+            <div class="top-bar">
+                <input type="text" id="buscaNome" placeholder="🔍 Buscar por nome...">
+                <select id="filtroNota">
+                    <option value="">Filtrar por nota</option>
+                    ${[...Array(11).keys()].map(n => `<option value="${n}">${n}</option>`).join("")}
+                </select>
+            </div>
+
+            <div id="npsBox" class="nps-box">Calculando NPS...</div>
+
+            <div class="comentarios-container" id="comentariosContainer"></div>
+        </div>
     </div>
 
-    <div class="legendas">
-      <div class="legenda">Muito<br>Insatisfeito</div>
-      <div class="legenda">Insatisfeito</div>
-      <div class="legenda">Nem satisfeito<br>nem insatisfeito</div>
-      <div class="legenda">Satisfeito</div>
-      <div class="legenda">Totalmente<br>Satisfeito</div>
-    </div>
+    <footer>
+        <p>Monitoramento 24h • Segurança Residencial e Empresarial<br>
+            © 2025 Vegas Vigilância</p>
+    </footer>
 
-    <form id="form">
-      <input type="hidden" id="notaEscolhida" name="notaEscolhida">
-      <input type="text" id="nome" placeholder="Nome completo" required>
-      <input type="tel" id="telefone" placeholder="(00) 00000-0000" required>
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbyiGedsPHMibL87lObnRy_nKfHWxhhIOd1gJG14A1fkilz9Mw9dCGaJsxciYsbMIfZGbA/exec";
+        let respostasOriginais = [];
 
-     <label for="produtos"></label>
-<select id="produtos" name="produtos" multiple required>
-  <option disabled selected>Selecione seu produto</option>
-  <option value="Alarme Monitorado">Alarme Monitorado</option>
-  <option value="Câmeras de Segurança">Câmeras de Segurança</option>
-  <option value="Rastreador Veicular">Rastreador Veicular</option>
-  <option value="Vigilância/Portaria">Vigilância / Portaria</option>
-  <option value="Bombeiro/Limpeza">Bombeiro / Limpeza</option>
-</select>
+        async function buscarDados() {
+            const resposta = await fetch(API_URL);
+            const dados = await resposta.json();
+            // Inverte a ordem das respostas (últimas primeiro)
+            return dados.reverse().map(item => ({
+                nota: Number(item.nota),
+                nome: item.nome?.trim() || "Sem nome",
+                telefone: item.telefone || "-",
+                endereco: item.endereco || "-",
+                comentarios: item.comentarios || "Sem comentário"
+            }));
+        }
 
+        function gerarGraficoPizza(respostas) {
+            const contagemNotas = new Array(11).fill(0);
+            respostas.forEach(r => contagemNotas[r.nota]++);
 
-      <textarea id="comentarios" placeholder="Comentários (opcional)"></textarea>
-      <button type="submit">Enviar Avaliação</button>
-    </form>
-  </div>
+            const ctx = document.getElementById('graficoPizza').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: contagemNotas.map((_, i) => `Nota ${i}`),
+                    datasets: [{
+                        label: 'Notas',
+                        data: contagemNotas,
+                        backgroundColor: [
+                            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                            '#9966FF', '#FF9F40', '#E7E9ED', '#8BC34A',
+                            '#795548', '#607D8B', '#3F51B5'
+                        ],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#fff' } }
+                    }
+                }
+            });
+        }
 
-  <footer>
-    <p>Monitoramento 24h • Segurança Residencial e Empresarial<br>
-    © 2025 Vegas Vigilância</p>
-  </footer>
+        function calcularNPS(respostas) {
+            const total = respostas.length;
+            const promotores = respostas.filter(r => r.nota >= 9).length;
+            const detratores = respostas.filter(r => r.nota <= 6).length;
+            const nps = Math.round(((promotores - detratores) / total) * 100);
+            document.getElementById("npsBox").textContent =
+                `NPS: ${nps} (Promotores: ${promotores}, Detratores: ${detratores}, Total: ${total})`;
+        }
 
-  <script>
-    const notas = document.querySelectorAll('.nota');
-    const notaInput = document.getElementById('notaEscolhida');
-    const form = document.getElementById('form');
+        function preencherComentarios(respostas) {
+            const container = document.getElementById("comentariosContainer");
+            container.innerHTML = "";
 
-    notas.forEach(nota => {
-      nota.addEventListener('click', () => {
-        notas.forEach(n => n.classList.remove('selected'));
-        nota.classList.add('selected');
-        notaInput.value = nota.dataset.value;
-      });
-    });
+            if (respostas.length === 0) {
+                container.innerHTML = "<p>Nenhum resultado encontrado.</p>";
+                return;
+            }
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
+            respostas.forEach(r => {
+                const card = document.createElement("div");
+                card.className = "card-comentario";
+                card.innerHTML = `
+          <div class="nota">Nota: ${r.nota}</div>
+          <div class="nome">${r.nome}</div>
+          <div class="comentario">"${r.comentarios}"</div>
+          <div class="extras">
+            Tel: ${r.telefone}<br>
+            Endereço: ${r.endereco}
+          </div>`;
+                container.appendChild(card);
+            });
+        }
 
-      const produtosSelecionados = Array.from(document.getElementById('produtos').selectedOptions)
-        .map(opt => opt.value)
-        .join(", ");
+        function aplicarFiltros() {
+            const nomeFiltro = document.getElementById("buscaNome").value.toLowerCase();
+            const notaFiltro = document.getElementById("filtroNota").value;
+            let filtradas = respostasOriginais;
 
-      const formData = new FormData();
-      formData.append("nota", document.getElementById('notaEscolhida').value);
-      formData.append("nome", document.getElementById('nome').value);
-      formData.append("telefone", document.getElementById('telefone').value);
-      formData.append("produtos", produtosSelecionados);
-      formData.append("comentarios", document.getElementById('comentarios').value);
+            if (nomeFiltro) filtradas = filtradas.filter(r => r.nome.toLowerCase().includes(nomeFiltro));
+            if (notaFiltro !== "") filtradas = filtradas.filter(r => r.nota == notaFiltro);
 
-      fetch("https://script.google.com/macros/s/AKfycbyWjOFPR3JSlJOLuHst4jcUrBsCp2VOqikGV8xNIl_0MCDYm__BMuwCHK4QbW6lY3yimA/exec", {
-        method: "POST",
-        body: formData
-      }).then(res => res.text())
-        .then(data => {
-          alert("Avaliação enviada com sucesso!");
-          form.reset();
-          notas.forEach(n => n.classList.remove('selected'));
-        })
-        .catch(err => {
-          console.error("Erro ao enviar:", err);
-          alert("Erro ao enviar. Verifique sua conexão.");
-        });
-    });
-  </script>
+            preencherComentarios(filtradas);
+        }
+
+        document.getElementById("buscaNome").addEventListener("input", aplicarFiltros);
+        document.getElementById("filtroNota").addEventListener("change", aplicarFiltros);
+
+        buscarDados()
+            .then(respostas => {
+                respostasOriginais = respostas;
+                gerarGraficoPizza(respostas);
+                preencherComentarios(respostas);
+                calcularNPS(respostas);
+            })
+            .catch(erro => {
+                console.error("Erro ao buscar dados:", erro);
+                document.querySelector(".container").innerHTML = "<p>Erro ao carregar os dados. Verifique a conexão.</p>";
+            });
+    </script>
 </body>
+
 </html>
