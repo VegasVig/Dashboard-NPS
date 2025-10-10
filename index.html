@@ -116,7 +116,17 @@
     <input type="text" id="buscaProduto" placeholder="🔍 Buscar por produto...">
     <select id="filtroNota">
       <option value="">Filtrar por nota</option>
-      ${[...Array(11).keys()].map(n => `<option value="${n}">${n}</option>`).join("")}
+      <option value="0">0</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+      <option value="10">10</option>
     </select>
   </div>
 
@@ -127,13 +137,15 @@
   <div class="footer">© 2025 Vegas Vigilância - Dashboard NPS</div>
 
   <script>
-    const API_URL = "PASTE_AQUI_SUA_URL_DO_APPS_SCRIPT"; // <<<< substitua aqui
+    // 🧩 Substitua pelo link do seu Google Apps Script (terminando em /exec)
+    const API_URL = "https://script.google.com/macros/s/AKfycbyiGedsPHMibL87lObnRy_nKfHWxhhIOd1gJG14A1fkilz9Mw9dCGaJsxciYsbMIfZGbA/exec";
 
     let respostasOriginais = [];
 
     async function carregarRespostas() {
       try {
         const res = await fetch(API_URL);
+        if (!res.ok) throw new Error("Erro na resposta do servidor");
         const dados = await res.json();
 
         respostasOriginais = dados.reverse().map(item => ({
@@ -147,7 +159,7 @@
         preencherComentarios(respostasOriginais);
       } catch (err) {
         document.getElementById("cardsContainer").innerHTML =
-          `<p style="color:red;text-align:center;">Erro ao carregar dados: ${err}</p>`;
+          `<p style="color:red;text-align:center;">Erro ao carregar dados: ${err.message}</p>`;
       }
     }
 
@@ -203,3 +215,4 @@
   </script>
 </body>
 </html>
+
