@@ -5,10 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard NPS - Vegas Vigilância</title>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
     :root {
       --bg: #000;
@@ -29,10 +26,12 @@
       font-family: Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
+      line-height: 1.5;
     }
 
     header {
-      background: #0a0a0a;
+      background-color: #0a0a0a;
+      color: white;
       padding: 20px;
       text-align: center;
       border-bottom: 2px solid #5f6463;
@@ -40,18 +39,19 @@
 
     header img {
       width: 100px;
+      height: auto;
       margin-bottom: 10px;
     }
 
     h1 {
-      color: var(--accent);
       font-size: 20px;
+      color: var(--accent);
     }
 
     .container {
+      padding: 20px;
       max-width: 1100px;
       margin: auto;
-      padding: 20px;
     }
 
     .grafico,
@@ -66,33 +66,42 @@
     .top-bar {
       display: flex;
       flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
       gap: 10px;
       margin-bottom: 15px;
     }
 
-    input,
-    select {
+    .top-bar input,
+    .top-bar select {
       padding: 8px;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      color: white;
+      font-size: 14px;
       border-radius: 6px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: white;
     }
 
     .nps-box {
       background: #1a1a1a;
       padding: 15px;
       border-left: 5px solid var(--primary);
-      color: var(--accent);
+      border-radius: 8px;
       font-weight: bold;
-      margin-bottom: 20px;
       font-size: 18px;
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+
+    canvas {
+      max-width: 100%;
     }
 
     .comentarios-container {
       display: flex;
       flex-wrap: wrap;
       gap: 15px;
+      margin-top: 20px;
     }
 
     .card-comentario {
@@ -101,23 +110,34 @@
       border-radius: 8px;
       padding: 15px;
       flex: 1 1 300px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+
+    .card-comentario:hover {
+      transform: scale(1.02);
     }
 
     .nota {
-      font-size: 22px;
-      color: var(--accent);
+      font-size: 24px;
       font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 10px;
     }
 
     .nome {
-      font-weight: bold;
-      margin: 5px 0;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
     }
 
     .comentario {
       font-style: italic;
       color: var(--subtext);
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .extras {
@@ -126,35 +146,45 @@
     }
 
     footer {
+      background: #0a0a0a;
+      color: white;
       text-align: center;
       padding: 15px;
-      border-top: 2px solid #5f6463;
+      margin-top: 40px;
       font-size: 13px;
+      border-top: 2px solid #5f6463;
+    }
+
+    @media (max-width: 600px) {
+      .card-comentario {
+        flex: 1 1 100%;
+      }
+
+      .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
   </style>
 </head>
 
 <body>
-
   <header>
-    <img src="./assets/logovegas.jpg" alt="Vegas Vigilância">
+    <img src="./assets/logovegas.jpg" alt="Logo Vegas Vigilância">
     <h1>Dashboard - Comentários e Notas NPS</h1>
   </header>
 
   <div class="container">
-
     <div class="grafico">
-      <h2>Distribuição das Notas</h2>
+      <h2 style="color:#fff;">Distribuição das Notas</h2>
       <canvas id="graficoPizza"></canvas>
     </div>
 
     <div class="comentarios-section">
-
       <div class="top-bar">
-        <input type="text" id="buscaNome" placeholder="🔍 Buscar por nome">
+        <input type="text" id="buscaNome" placeholder="🔍 Buscar por nome...">
         <select id="filtroNota">
           <option value="">Filtrar por nota</option>
-          <option value="0">0</option>
           <option value="1">1</option>
           <option value="2">2</option>
           <option value="3">3</option>
@@ -172,20 +202,20 @@
           <option value="Alarme Monitorado">Alarme Monitorado</option>
           <option value="Câmeras de Segurança">Câmeras de Segurança</option>
           <option value="Rastreador Veicular">Rastreador Veicular</option>
-          <option value="Vigilância">Vigilância</option>
+          <option value="Vigilância/Portaria">Vigilância / Portaria</option>
+          <option value="Bombeiro/Limpeza">Bombeiro / Limpeza</option>
         </select>
       </div>
 
       <div id="npsBox" class="nps-box">Calculando NPS...</div>
 
-      <div id="comentariosContainer" class="comentarios-container"></div>
-
+      <div class="comentarios-container" id="comentariosContainer"></div>
     </div>
   </div>
 
   <footer>
-    Monitoramento 24h • Segurança Residencial e Empresarial<br>
-    © 2025 Vegas Vigilância
+    <p>Monitoramento 24h • Segurança Residencial e Empresarial<br>
+      © 2025 Vegas Vigilância</p>
   </footer>
 
   <script>
@@ -193,10 +223,9 @@
     let respostasOriginais = [];
 
     async function buscarDados() {
-      const res = await fetch(API_URL);
-      const json = await res.json();
-      const dados = json.data || [];
-
+      const resposta = await fetch(API_URL);
+      const dados = await resposta.json();
+      // Inverte a ordem das respostas (últimas primeiro)
       return dados.reverse().map(item => ({
         nota: Number(item.nota),
         nome: item.nome?.trim() || "Sem nome",
@@ -207,100 +236,95 @@
     }
 
     function gerarGraficoPizza(respostas) {
-      try {
-        const contagem = new Array(11).fill(0);
+      const contagemNotas = new Array(11).fill(0);
+      respostas.forEach(r => contagemNotas[r.nota]++);
 
-        respostas.forEach(r => {
-          if (!isNaN(r.nota) && r.nota >= 0 && r.nota <= 10) {
-            contagem[r.nota]++;
+      const ctx = document.getElementById('graficoPizza').getContext('2d');
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: contagemNotas.map((_, i) => `Nota ${i}`),
+          datasets: [{
+            label: 'Notas',
+            data: contagemNotas,
+            backgroundColor: [
+              '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+              '#9966FF', '#FF9F40', '#E7E9ED', '#8BC34A',
+              '#795548', '#607D8B', '#3F51B5'
+            ],
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#fff' } }
           }
-        });
-
-        new Chart(document.getElementById("graficoPizza"), {
-          type: "pie",
-          data: {
-            labels: contagem.map((_, i) => `Nota ${i}`),
-            datasets: [{
-              data: contagem
-            }]
-          },
-          options: {
-            plugins: {
-              legend: {
-                position: "bottom",
-                labels: { color: "#fff" }
-              }
-            }
-          }
-        });
-      } catch (e) {
-        console.error("Erro no gráfico:", e);
-      }
+        }
+      });
     }
 
     function calcularNPS(respostas) {
       const total = respostas.length;
       const promotores = respostas.filter(r => r.nota >= 9).length;
       const detratores = respostas.filter(r => r.nota <= 6).length;
-      const nps = total ? Math.round(((promotores - detratores) / total) * 100) : 0;
-
+      const nps = Math.round(((promotores - detratores) / total) * 100);
       document.getElementById("npsBox").textContent =
-        `NPS: ${nps} | Promotores: ${promotores} | Detratores: ${detratores} | Total: ${total}`;
+        `NPS: ${nps} (Promotores: ${promotores}, Detratores: ${detratores}, Total: ${total})`;
     }
 
-    function preencherComentarios(lista) {
+    function preencherComentarios(respostas) {
       const container = document.getElementById("comentariosContainer");
       container.innerHTML = "";
 
-      if (!lista.length) {
+      if (respostas.length === 0) {
         container.innerHTML = "<p>Nenhum resultado encontrado.</p>";
         return;
       }
 
-      lista.forEach(r => {
-        container.innerHTML += `
-          <div class="card-comentario">
-            <div class="nota">Nota ${r.nota}</div>
-            <div class="nome">${r.nome}</div>
-            <div class="comentario">"${r.comentarios}"</div>
-            <div class="extras">
-              Tel: ${r.telefone}<br>
-              Produto(s): ${r.produtos}
-            </div>
+      respostas.forEach(r => {
+        const card = document.createElement("div");
+        card.className = "card-comentario";
+        card.innerHTML = `
+          <div class="nota">Nota: ${r.nota}</div>
+          <div class="nome">${r.nome}</div>
+          <div class="comentario">"${r.comentarios}"</div>
+          <div class="extras">
+            Tel: ${r.telefone}<br>
+            Produto(s): ${r.produtos}
           </div>`;
+        container.appendChild(card);
       });
     }
 
     function aplicarFiltros() {
-      const nome = buscaNome.value.toLowerCase();
-      const nota = filtroNota.value;
-      const produto = filtroProduto.value;
+      const nomeFiltro = document.getElementById("buscaNome").value.toLowerCase();
+      const notaFiltro = document.getElementById("filtroNota").value;
+      const produtoFiltro = document.getElementById("filtroProduto").value;
+      let filtradas = respostasOriginais;
 
-      let filtrado = respostasOriginais;
+      if (nomeFiltro) filtradas = filtradas.filter(r => r.nome.toLowerCase().includes(nomeFiltro));
+      if (notaFiltro !== "") filtradas = filtradas.filter(r => String(r.nota) === notaFiltro);
+      if (produtoFiltro !== "") filtradas = filtradas.filter(r => r.produtos.includes(produtoFiltro));
 
-      if (nome) filtrado = filtrado.filter(r => r.nome.toLowerCase().includes(nome));
-      if (nota) filtrado = filtrado.filter(r => String(r.nota) === nota);
-      if (produto) filtrado = filtrado.filter(r => r.produtos.includes(produto));
-
-      preencherComentarios(filtrado);
+      preencherComentarios(filtradas);
     }
 
-    buscaNome.oninput = aplicarFiltros;
-    filtroNota.onchange = aplicarFiltros;
-    filtroProduto.onchange = aplicarFiltros;
+    document.getElementById("buscaNome").addEventListener("input", aplicarFiltros);
+    document.getElementById("filtroNota").addEventListener("change", aplicarFiltros);
+    document.getElementById("filtroProduto").addEventListener("change", aplicarFiltros);
 
     buscarDados()
       .then(respostas => {
         respostasOriginais = respostas;
         gerarGraficoPizza(respostas);
-        calcularNPS(respostas);
         preencherComentarios(respostas);
+        calcularNPS(respostas);
       })
-      .catch(err => {
-        console.error(err);
-        document.querySelector(".container").innerHTML = "<p>Erro ao carregar dados.</p>";
+      .catch(erro => {
+        console.error("Erro ao buscar dados:", erro);
+        document.querySelector(".container").innerHTML = "<p>Erro ao carregar os dados. Verifique a conexão.</p>";
       });
   </script>
-
 </body>
+
 </html>
