@@ -94,7 +94,8 @@
     }
 
     canvas {
-      max-width: 100%;
+      max-width: 400px; /* Reduzi um pouco para não ocupar a tela toda */
+      margin: 0 auto;
     }
 
     .comentarios-container {
@@ -124,7 +125,7 @@
       font-size: 24px;
       font-weight: bold;
       color: var(--accent);
-      margin-bottom: 10px;
+      margin-bottom: 5px;
     }
 
     .nome {
@@ -132,6 +133,12 @@
       font-weight: 600;
       margin-bottom: 8px;
       color: var(--text);
+    }
+
+    .data-card {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 8px;
     }
 
     .comentario {
@@ -159,7 +166,6 @@
       .card-comentario {
         flex: 1 1 100%;
       }
-
       .top-bar {
         flex-direction: column;
         align-items: stretch;
@@ -176,29 +182,31 @@
 
   <div class="container">
     <div class="grafico">
-      <h2 style="color:#fff;">Distribuição das Notas</h2>
+      <h2 style="color:#fff; text-align: center; margin-bottom: 15px;">Distribuição das Notas</h2>
       <canvas id="graficoPizza"></canvas>
     </div>
 
     <div class="comentarios-section">
       <div class="top-bar">
-        <input type="text" id="buscaNome" placeholder="🔍 Buscar por nome...">
+        <input type="text" id="buscaNome" placeholder="🔍 Nome...">
+        
+        <div style="display: flex; gap: 5px; align-items: center;">
+            <label style="font-size: 12px;">De:</label>
+            <input type="date" id="dataInicio">
+            <label style="font-size: 12px;">Até:</label>
+            <input type="date" id="dataFim">
+        </div>
+
         <select id="filtroNota">
-          <option value="">Filtrar por nota</option>
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="7">7</option>
-          <option value="8">8</option>
-          <option value="9">9</option>
+          <option value="">Nota: Todas</option>
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option><option value="9">9</option>
           <option value="10">10</option>
         </select>
 
         <select id="filtroProduto">
-          <option value="">Filtrar por produto</option>
+          <option value="">Todos os Produtos</option>
           <option value="Alarme Monitorado">Alarme Monitorado</option>
           <option value="Câmeras de Segurança">Câmeras de Segurança</option>
           <option value="Rastreador Veicular">Rastreador Veicular</option>
@@ -221,18 +229,24 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbyiGedsPHMibL87lObnRy_nKfHWxhhIOd1gJG14A1fkilz9Mw9dCGaJsxciYsbMIfZGbA/exec";
     let respostasOriginais = [];
+    let meuGrafico = null;
 
     async function buscarDados() {
       const resposta = await fetch(API_URL);
       const dados = await resposta.json();
-      // Inverte a ordem das respostas (últimas primeiro)
-      return dados.reverse().map(item => ({
-        nota: Number(item.nota),
-        nome: item.nome?.trim() || "Sem nome",
-        telefone: item.telefone || "-",
-        produtos: item.produtos || "Não informado",
-        comentarios: item.comentarios || "Sem comentário"
-      }));
+      
+      return dados.reverse().map(item => {
+        // Tenta pegar a data de campos comuns como 'carimbo', 'data' ou 'timestamp'
+        const rawDate = item.carimbo || item.timestamp || item.data;
+        return {
+          nota: Number(item.nota),
+          nome: item.nome?.trim() || "Sem nome",
+          telefone: item.telefone || "-",
+          produtos: item.produtos || "Não informado",
+          comentarios: item.comentarios || "Sem comentário",
+          data: rawDate ? new Date(rawDate) : null
+        };
+      });
     }
 
     function gerarGraficoPizza(respostas) {
@@ -240,12 +254,17 @@
       respostas.forEach(r => contagemNotas[r.nota]++);
 
       const ctx = document.getElementById('graficoPizza').getContext('2d');
-      new Chart(ctx, {
+      
+      // Se já existir um gráfico, destrói para criar um novo (necessário para atualizar)
+      if (meuGrafico) {
+        meuGrafico.destroy();
+      }
+
+      meuGrafico = new Chart(ctx, {
         type: 'pie',
         data: {
           labels: contagemNotas.map((_, i) => `Nota ${i}`),
           datasets: [{
-            label: 'Notas',
             data: contagemNotas,
             backgroundColor: [
               '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
@@ -265,6 +284,10 @@
 
     function calcularNPS(respostas) {
       const total = respostas.length;
+      if (total === 0) {
+        document.getElementById("npsBox").textContent = "NPS: N/A (Nenhum dado no período)";
+        return;
+      }
       const promotores = respostas.filter(r => r.nota >= 9).length;
       const detratores = respostas.filter(r => r.nota <= 6).length;
       const nps = Math.round(((promotores - detratores) / total) * 100);
@@ -277,16 +300,18 @@
       container.innerHTML = "";
 
       if (respostas.length === 0) {
-        container.innerHTML = "<p>Nenhum resultado encontrado.</p>";
+        container.innerHTML = "<p>Nenhum resultado encontrado para os filtros selecionados.</p>";
         return;
       }
 
       respostas.forEach(r => {
+        const dataFormatada = r.data ? r.data.toLocaleDateString('pt-BR') : 'Data não informada';
         const card = document.createElement("div");
         card.className = "card-comentario";
         card.innerHTML = `
           <div class="nota">Nota: ${r.nota}</div>
           <div class="nome">${r.nome}</div>
+          <div class="data-card">Enviado em: ${dataFormatada}</div>
           <div class="comentario">"${r.comentarios}"</div>
           <div class="extras">
             Tel: ${r.telefone}<br>
@@ -300,29 +325,64 @@
       const nomeFiltro = document.getElementById("buscaNome").value.toLowerCase();
       const notaFiltro = document.getElementById("filtroNota").value;
       const produtoFiltro = document.getElementById("filtroProduto").value;
+      const dataInicio = document.getElementById("dataInicio").value;
+      const dataFim = document.getElementById("dataFim").value;
+
       let filtradas = respostasOriginais;
 
-      if (nomeFiltro) filtradas = filtradas.filter(r => r.nome.toLowerCase().includes(nomeFiltro));
-      if (notaFiltro !== "") filtradas = filtradas.filter(r => String(r.nota) === notaFiltro);
-      if (produtoFiltro !== "") filtradas = filtradas.filter(r => r.produtos.includes(produtoFiltro));
+      // Filtro por Nome
+      if (nomeFiltro) {
+        filtradas = filtradas.filter(r => r.nome.toLowerCase().includes(nomeFiltro));
+      }
 
+      // Filtro por Nota
+      if (notaFiltro !== "") {
+        filtradas = filtradas.filter(r => String(r.nota) === notaFiltro);
+      }
+
+      // Filtro por Produto
+      if (produtoFiltro !== "") {
+        filtradas = filtradas.filter(r => r.produtos.includes(produtoFiltro));
+      }
+
+      // Filtro por Data Início
+      if (dataInicio) {
+        const dInicio = new Date(dataInicio);
+        dInicio.setHours(0, 0, 0, 0);
+        filtradas = filtradas.filter(r => r.data && r.data >= dInicio);
+      }
+
+      // Filtro por Data Fim
+      if (dataFim) {
+        const dFim = new Date(dataFim);
+        dFim.setHours(23, 59, 59, 999);
+        filtradas = filtradas.filter(r => r.data && r.data <= dFim);
+      }
+
+      // Atualiza todos os componentes da tela com os dados filtrados
       preencherComentarios(filtradas);
+      calcularNPS(filtradas);
+      gerarGraficoPizza(filtradas);
     }
 
+    // Adicionando ouvintes de eventos para todos os inputs
     document.getElementById("buscaNome").addEventListener("input", aplicarFiltros);
     document.getElementById("filtroNota").addEventListener("change", aplicarFiltros);
     document.getElementById("filtroProduto").addEventListener("change", aplicarFiltros);
+    document.getElementById("dataInicio").addEventListener("change", aplicarFiltros);
+    document.getElementById("dataFim").addEventListener("change", aplicarFiltros);
 
+    // Inicialização
     buscarDados()
       .then(respostas => {
         respostasOriginais = respostas;
-        gerarGraficoPizza(respostas);
         preencherComentarios(respostas);
         calcularNPS(respostas);
+        gerarGraficoPizza(respostas);
       })
       .catch(erro => {
         console.error("Erro ao buscar dados:", erro);
-        document.querySelector(".container").innerHTML = "<p>Erro ao carregar os dados. Verifique a conexão.</p>";
+        document.querySelector(".container").innerHTML = "<p>Erro ao carregar os dados. Verifique a URL da API.</p>";
       });
   </script>
 </body>
