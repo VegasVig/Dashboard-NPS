@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 
@@ -280,7 +279,8 @@
     }
 
     async function buscarDados() {
-      const resposta = await fetch(`${API_URL}?sheet=${encodeURIComponent(abaSelecionada)}`);
+      const cidade = abaSelecionada === "Respostas Niteroi" ? "niteroi" : "vr";
+      const resposta = await fetch(`${API_URL}?cidade=${cidade}`);
       const dados = await resposta.json();
 
       return dados.reverse().map(item => {
@@ -421,5 +421,5 @@
   </script>
 
 </body>
+
 </html>
-```
