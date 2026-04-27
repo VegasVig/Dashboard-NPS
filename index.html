@@ -222,7 +222,28 @@
           <option value="Bombeiro/Limpeza">Bombeiro / Limpeza</option>
         </select>
       </div>
-
+      <select id="filtroFuncionario">
+        <option value="">Todos os Atendentes</option>
+        <option value="Aline">Aline</option>
+        <option value="Amanda">Amanda</option>
+        <option value="André">André</option>
+        <option value="Bruna">Bruna</option>
+        <option value="Cássio">Cássio</option>
+        <option value="Christopher">Christopher</option>
+        <option value="Débora">Débora</option>
+        <option value="Emmeline">Emmeline</option>
+        <option value="Fernanda">Fernanda</option>
+        <option value="Gilson">Gilson</option>
+        <option value="Jocilene">Jocilene</option>
+        <option value="Julia">Julia</option>
+        <option value="Luzia">Luzia</option>
+        <option value="Nancy">Nancy</option>
+        <option value="Rayane">Rayane</option>
+        <option value="Roberta">Roberta</option>
+        <option value="Sandra">Sandra</option>
+        <option value="Thais">Thais</option>
+        <option value="Yuri">Yuri</option>
+      </select>
       <div id="npsBox" class="nps-box">Calculando NPS...</div>
 
       <div class="comentarios-container" id="comentariosContainer"></div>
@@ -235,7 +256,7 @@
   </footer>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyiGedsPHMibL87lObnRy_nKfHWxhhIOd1gJG14A1fkilz9Mw9dCGaJsxciYsbMIfZGbA/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzccl33qBNMbNzThJS6WorJYUXyw5rkumh8DwF8PpaZOY-EJY4GnaAxQxVmB3dJvYwpSQ/exec";
     let respostasOriginais = [];
     let meuGrafico = null;
 
@@ -251,6 +272,7 @@
           nome: item.nome?.trim() || "Sem nome",
           telefone: item.telefone || "-",
           produtos: item.produtos || "Não informado",
+          funcionario: item.funcionario || "Não informado",
           comentarios: item.comentarios || "Sem comentário",
           data: rawDate ? new Date(rawDate) : null
         };
@@ -321,10 +343,11 @@
           <div class="nome">${r.nome}</div>
           <div class="data-card">Enviado em: ${dataFormatada}</div>
           <div class="comentario">"${r.comentarios}"</div>
-          <div class="extras">
-            Tel: ${r.telefone}<br>
-            Produto(s): ${r.produtos}
-          </div>`;
+         <div class="extras">
+         Tel: ${r.telefone}<br>
+         Produto(s): ${r.produtos}<br>
+         Atendente: ${r.funcionario}
+      </div>`;
         container.appendChild(card);
       });
     }
@@ -335,7 +358,7 @@
       const produtoFiltro = document.getElementById("filtroProduto").value;
       const dataInicio = document.getElementById("dataInicio").value;
       const dataFim = document.getElementById("dataFim").value;
-
+      const funcionarioFiltro = document.getElementById("filtroFuncionario").value;
       let filtradas = respostasOriginais;
 
       // Filtro por Nome
@@ -351,6 +374,9 @@
       // Filtro por Produto
       if (produtoFiltro !== "") {
         filtradas = filtradas.filter(r => r.produtos.includes(produtoFiltro));
+        if (funcionarioFiltro !== "") {
+          filtradas = filtradas.filter(r => r.funcionario === funcionarioFiltro);
+        }
       }
 
       // Filtro por Data Início
