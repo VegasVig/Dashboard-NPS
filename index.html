@@ -17,11 +17,7 @@
       --accent: #ffcc00;
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: Arial, sans-serif;
@@ -38,22 +34,11 @@
       border-bottom: 2px solid #5f6463;
     }
 
-    header img {
-      width: 100px;
-      height: auto;
-      margin-bottom: 10px;
-    }
+    header img { width: 100px; height: auto; margin-bottom: 10px; }
 
-    h1 {
-      font-size: 20px;
-      color: var(--accent);
-    }
+    h1 { font-size: 20px; color: var(--accent); }
 
-    .container {
-      padding: 20px;
-      max-width: 1100px;
-      margin: auto;
-    }
+    .container { padding: 20px; max-width: 1100px; margin: auto; }
 
     .grafico,
     .comentarios-section {
@@ -94,10 +79,7 @@
       color: var(--accent);
     }
 
-    canvas {
-      max-width: 400px;
-      margin: 0 auto;
-    }
+    canvas { max-width: 400px; margin: 0 auto; }
 
     .comentarios-container {
       display: flex;
@@ -118,39 +100,13 @@
       transition: transform 0.3s ease;
     }
 
-    .card-comentario:hover {
-      transform: scale(1.02);
-    }
+    .card-comentario:hover { transform: scale(1.02); }
 
-    .nota {
-      font-size: 24px;
-      font-weight: bold;
-      color: var(--accent);
-      margin-bottom: 5px;
-    }
-
-    .nome {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .data-card {
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 8px;
-    }
-
-    .comentario {
-      font-style: italic;
-      color: var(--subtext);
-      margin-bottom: 10px;
-    }
-
-    .extras {
-      font-size: 12px;
-      color: var(--subtext);
-    }
+    .nota { font-size: 24px; font-weight: bold; color: var(--accent); margin-bottom: 5px; }
+    .nome { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .data-card { font-size: 11px; color: #666; margin-bottom: 8px; }
+    .comentario { font-style: italic; color: var(--subtext); margin-bottom: 10px; }
+    .extras { font-size: 12px; color: var(--subtext); }
 
     footer {
       background: #0a0a0a;
@@ -163,14 +119,8 @@
     }
 
     @media (max-width: 600px) {
-      .card-comentario {
-        flex: 1 1 100%;
-      }
-
-      .top-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
+      .card-comentario { flex: 1 1 100%; }
+      .top-bar { flex-direction: column; align-items: stretch; }
     }
   </style>
 </head>
@@ -195,6 +145,7 @@
         <select id="filtroCidade">
           <option value="Respostas">NPS Volta Redonda</option>
           <option value="Respostas Niteroi">NPS Niterói</option>
+          <option value="Respostas Funcionários">NPS Funcionários</option>
         </select>
 
         <input type="text" id="buscaNome" placeholder="🔍 Nome...">
@@ -233,6 +184,17 @@
           <option value="">Todos os Atendentes</option>
         </select>
 
+        <select id="filtroSetor" style="display:none;">
+          <option value="">Todos os Setores</option>
+          <option value="Operacional">Operacional</option>
+          <option value="Monitoramento">Monitoramento</option>
+          <option value="Comercial">Comercial</option>
+          <option value="Administrativo">Administrativo</option>
+          <option value="RH">RH</option>
+          <option value="Financeiro">Financeiro</option>
+          <option value="TI">TI</option>
+        </select>
+
       </div>
 
       <div id="npsBox" class="nps-box">Calculando NPS...</div>
@@ -246,11 +208,12 @@
   </footer>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzktmCreDHHKxXP7L_Ne5N_K6--vIHuLTr20JIqPPCxCUXek_bye7QAjgkAqdD2POksUQ/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbynVCaW7QoKzgkmZG5d1U4lUdYPy_0gjYLmntVx5b-UdrhRjshZ2iz-W_frksVxlq8q3Q/exec";
 
     let respostasOriginais = [];
     let meuGrafico = null;
     let abaSelecionada = "Respostas";
+    let modoFuncionario = false;
 
     const funcionariosVR = [
       "Aline", "Amanda", "André", "Bruna", "Cássio", "Christopher", "Débora",
@@ -267,9 +230,7 @@
     function atualizarFuncionarios() {
       const select = document.getElementById("filtroFuncionario");
       select.innerHTML = '<option value="">Todos os Atendentes</option>';
-
       const lista = abaSelecionada === "Respostas" ? funcionariosVR : funcionariosNiteroi;
-
       lista.forEach(nome => {
         const option = document.createElement("option");
         option.value = nome;
@@ -278,20 +239,33 @@
       });
     }
 
+    function ajustarFiltrosVisiveis() {
+      document.getElementById("filtroProduto").style.display = modoFuncionario ? "none" : "";
+      document.getElementById("filtroFuncionario").style.display = modoFuncionario ? "none" : "";
+      document.getElementById("filtroSetor").style.display = modoFuncionario ? "" : "none";
+    }
+
     async function buscarDados() {
-      const cidade = abaSelecionada === "Respostas Niteroi" ? "niteroi" : "vr";
+      let cidade = "vr";
+      if (abaSelecionada === "Respostas Niteroi") cidade = "niteroi";
+      else if (abaSelecionada === "Respostas Funcionários") cidade = "funcionarios";
+
       const resposta = await fetch(`${API_URL}?cidade=${cidade}`);
       const dados = await resposta.json();
+      const isFunc = cidade === "funcionarios";
 
       return dados.reverse().map(item => {
         const rawDate = item.carimbo || item.timestamp || item.data;
         return {
           nota: Number(item.nota),
-          nome: item.nome?.trim() || "Sem nome",
+          nome: item.nome?.trim() || (isFunc ? "Anônimo" : "Sem nome"),
           telefone: item.telefone || "-",
           produtos: item.produtos || "Não informado",
           funcionario: item.funcionario || "Não informado",
+          setor: item.setor || "Não informado",
+          tempoCasa: item.tempoCasa || "-",
           comentarios: item.comentarios || "Sem comentário",
+          isFunc,
           data: rawDate ? new Date(rawDate) : null
         };
       });
@@ -302,7 +276,6 @@
       respostas.forEach(r => contagemNotas[r.nota]++);
 
       const ctx = document.getElementById('graficoPizza').getContext('2d');
-
       if (meuGrafico) meuGrafico.destroy();
 
       meuGrafico = new Chart(ctx, {
@@ -320,9 +293,7 @@
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#fff' } }
-          }
+          plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } }
         }
       });
     }
@@ -330,16 +301,17 @@
     function calcularNPS(respostas) {
       const total = respostas.length;
       if (total === 0) {
-        document.getElementById("npsBox").textContent = "NPS: N/A";
+        document.getElementById("npsBox").textContent = modoFuncionario ? "eNPS: N/A" : "NPS: N/A";
         return;
       }
 
       const promotores = respostas.filter(r => r.nota >= 9).length;
       const detratores = respostas.filter(r => r.nota <= 6).length;
       const nps = Math.round(((promotores - detratores) / total) * 100);
+      const rotulo = modoFuncionario ? "eNPS" : "NPS";
 
       document.getElementById("npsBox").textContent =
-        `NPS: ${nps} (Promotores: ${promotores}, Detratores: ${detratores}, Total: ${total})`;
+        `${rotulo}: ${nps} (Promotores: ${promotores}, Detratores: ${detratores}, Total: ${total})`;
     }
 
     function preencherComentarios(respostas) {
@@ -348,6 +320,9 @@
 
       respostas.forEach(r => {
         const dataFormatada = r.data ? r.data.toLocaleDateString('pt-BR') : 'Data não informada';
+        const extras = r.isFunc
+          ? `Setor: ${r.setor}<br>Tempo de casa: ${r.tempoCasa}`
+          : `Tel: ${r.telefone}<br>Produto(s): ${r.produtos}<br>Atendente: ${r.funcionario}`;
 
         const card = document.createElement("div");
         card.className = "card-comentario";
@@ -356,11 +331,7 @@
           <div class="nome">${r.nome}</div>
           <div class="data-card">Enviado em: ${dataFormatada}</div>
           <div class="comentario">"${r.comentarios}"</div>
-          <div class="extras">
-            Tel: ${r.telefone}<br>
-            Produto(s): ${r.produtos}<br>
-            Atendente: ${r.funcionario}
-          </div>`;
+          <div class="extras">${extras}</div>`;
         container.appendChild(card);
       });
     }
@@ -370,6 +341,7 @@
       const notaFiltro = document.getElementById("filtroNota").value;
       const produtoFiltro = document.getElementById("filtroProduto").value;
       const funcionarioFiltro = document.getElementById("filtroFuncionario").value;
+      const setorFiltro = document.getElementById("filtroSetor").value;
       const dataInicio = document.getElementById("dataInicio").value;
       const dataFim = document.getElementById("dataFim").value;
 
@@ -377,8 +349,13 @@
 
       if (nomeFiltro) filtradas = filtradas.filter(r => r.nome.toLowerCase().includes(nomeFiltro));
       if (notaFiltro) filtradas = filtradas.filter(r => String(r.nota) === notaFiltro);
-      if (produtoFiltro) filtradas = filtradas.filter(r => r.produtos.includes(produtoFiltro));
-      if (funcionarioFiltro) filtradas = filtradas.filter(r => r.funcionario === funcionarioFiltro);
+
+      if (modoFuncionario) {
+        if (setorFiltro) filtradas = filtradas.filter(r => r.setor === setorFiltro);
+      } else {
+        if (produtoFiltro) filtradas = filtradas.filter(r => r.produtos.includes(produtoFiltro));
+        if (funcionarioFiltro) filtradas = filtradas.filter(r => r.funcionario === funcionarioFiltro);
+      }
 
       if (dataInicio) {
         const [a, m, d] = dataInicio.split("-");
@@ -398,7 +375,9 @@
     }
 
     async function carregarDashboard() {
-      atualizarFuncionarios();
+      modoFuncionario = abaSelecionada === "Respostas Funcionários";
+      ajustarFiltrosVisiveis();
+      if (!modoFuncionario) atualizarFuncionarios();
       respostasOriginais = await buscarDados();
       preencherComentarios(respostasOriginais);
       calcularNPS(respostasOriginais);
@@ -414,6 +393,7 @@
     document.getElementById("filtroNota").addEventListener("change", aplicarFiltros);
     document.getElementById("filtroProduto").addEventListener("change", aplicarFiltros);
     document.getElementById("filtroFuncionario").addEventListener("change", aplicarFiltros);
+    document.getElementById("filtroSetor").addEventListener("change", aplicarFiltros);
     document.getElementById("dataInicio").addEventListener("change", aplicarFiltros);
     document.getElementById("dataFim").addEventListener("change", aplicarFiltros);
 
