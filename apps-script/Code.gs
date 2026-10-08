@@ -212,7 +212,7 @@ function doGet(e) {
  *  - Lê as abas de respostas (não altera nada nelas).
  *  - Cria as abas: Tratativas, Tratativas_Historico, Tratativas_Usuarios.
  *  - Guarda os prints no Google Drive (privados, sem link público).
- *  - Toda ação, exceto login, exige token de sessão.
+ *  - Acesso aberto (sem login): quem tem o link do Dashboard vê e registra tratativas.
  *  Primeira vez: executar a função configurarTratativas() pelo editor.
  * ===================================================================== */
 
@@ -238,10 +238,7 @@ const CONFIG = {
   PASTA_RAIZ_DRIVE: 'NPS Vegas Vigilância',
   ABA_TRATATIVAS: 'Tratativas',
   ABA_HISTORICO: 'Tratativas_Historico',
-  ABA_USUARIOS: 'Tratativas_Usuarios',
 
-  HORAS_SESSAO: 12,
-  MAX_TENTATIVAS_LOGIN: 5,          // bloqueia 15 min após 5 erros
   MAX_BYTES_IMAGEM: 8 * 1024 * 1024 // por imagem, já comprimida pelo navegador
 };
 
@@ -260,7 +257,6 @@ const COLS_TRATATIVAS = [
 const COLS_TEXTO_TRATATIVAS = ['id_avaliacao', 'telefone', 'data_contato', 'hora_contato', 'imagens_tratativa'];
 
 const COLS_HISTORICO = ['data_hora', 'id_avaliacao', 'evento', 'detalhe', 'usuario'];
-const COLS_USUARIOS = ['usuario', 'nome', 'nova_senha', 'senha_hash', 'salt', 'ativo', 'ultimo_acesso'];
 
 const STATUS = {
   NOVO: 'Novo',
@@ -311,9 +307,8 @@ function lerPedidoTratativa_(e) {
 
 function apiTratativas_(p) {
   try {
-    if (p.acao === 'login') return json_(Object.assign({ ok: true }, login_(p)));
-
-    const sessao = validarToken_(p.token);
+    // Sem login: o nome de quem está usando vem do Dashboard (campo "Responsável").
+    const sessao = { nome: limpar_(p.usuario, 80) || 'Supervisão' };
     const acoes = {
       listar: listar_,
       detalhe: detalhe_,
@@ -345,7 +340,6 @@ function apiTratativas_(p) {
 function configurarTratativas() {
   const ss = planilha_();
   garantirAbas_(ss, true);
-  segredo_();
   pastaRaiz_();
   instalarGatilho();
   const r = sincronizarTratativas();
@@ -365,12 +359,6 @@ function ressincronizarTudo() {
   const props = PropertiesService.getScriptProperties();
   CONFIG.ABAS_CLIENTES.forEach(c => props.deleteProperty('sync_' + c.aba));
   console.log(JSON.stringify(sincronizarTratativas()));
-}
-
-/** Criptografa as senhas digitadas na coluna "nova_senha" da aba de usuários. */
-function prepararUsuarios() {
-  processarNovasSenhas_();
-  console.log('Senhas processadas.');
 }
 
 /* ------------------------------------------------------------------ */
@@ -478,7 +466,7 @@ function listar_(p, s) {
   const itens = t.linhas.map(l => resumoParaCliente_(l.obj));
   return {
     itens: itens,
-    usuarios: listarNomesUsuarios_(),
+    usuarios: Array.from(new Set(t.linhas.map(l => String(l.obj.responsavel || '').trim()).filter(String))).sort(),
     resultados: RESULTADOS_CONTATO,
     agora: new Date().toISOString()
   };
@@ -730,132 +718,6 @@ function historicoDe_(id) {
     .sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0));
 }
 
-/* ------------------------------------------------------------------ */
-/*  Login e sessão                                                     */
-/* ------------------------------------------------------------------ */
-
-function login_(p) {
-  const usuario = String(p.usuario || '').trim().toLowerCase();
-  const senha = String(p.senha || '');
-  if (!usuario || !senha) throw erro_('Informe usuário e senha.');
-
-  const cache = CacheService.getScriptCache();
-  const kTent = 'tent_' + usuario;
-  const tentativas = Number(cache.get(kTent) || 0);
-  if (tentativas >= CONFIG.MAX_TENTATIVAS_LOGIN) {
-    throw erro_('Acesso bloqueado por 15 minutos após várias tentativas incorretas.');
-  }
-
-  processarNovasSenhas_();
-  const u = usuarios_(true)[usuario];
-  if (!u || !u.ativo || !u.senha_hash || hash_(u.salt + senha) !== u.senha_hash) {
-    cache.put(kTent, String(tentativas + 1), 900);
-    Utilities.sleep(500);
-    throw erro_('Usuário ou senha incorretos.');
-  }
-  cache.remove(kTent);
-
-  try {
-    const sh = planilha_().getSheetByName(CONFIG.ABA_USUARIOS);
-    sh.getRange(u.linha, COLS_USUARIOS.indexOf('ultimo_acesso') + 1).setValue(new Date());
-  } catch (e) { /* não impede o login */ }
-
-  return { token: gerarToken_(u), usuario: { usuario: u.usuario, nome: u.nome } };
-}
-
-function gerarToken_(u) {
-  const payload = Utilities.base64EncodeWebSafe(JSON.stringify({
-    u: u.usuario, n: u.nome, v: String(u.salt).slice(0, 8),
-    exp: Date.now() + CONFIG.HORAS_SESSAO * 3600 * 1000
-  }), Utilities.Charset.UTF_8);
-  return payload + '.' + assinar_(payload);
-}
-
-function validarToken_(token) {
-  const negar = () => erro_('Sua sessão expirou. Entre novamente.', 'AUTH');
-  if (!token || String(token).indexOf('.') < 0) throw negar();
-  const partes = String(token).split('.');
-  if (assinar_(partes[0]) !== partes[1]) throw negar();
-  let d;
-  try { d = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(partes[0])).getDataAsString('UTF-8')); }
-  catch (e) { throw negar(); }
-  if (!d.exp || d.exp < Date.now()) throw negar();
-  const u = usuarios_(false)[d.u];
-  // Senha trocada ou usuário desativado: sessões antigas deixam de valer.
-  if (!u || !u.ativo || String(u.salt).slice(0, 8) !== d.v) throw negar();
-  return { usuario: u.usuario, nome: u.nome };
-}
-
-function assinar_(texto) {
-  return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(texto, segredo_()));
-}
-
-function segredo_() {
-  const props = PropertiesService.getScriptProperties();
-  let s = props.getProperty('TOKEN_SECRET');
-  if (!s) {
-    s = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid();
-    props.setProperty('TOKEN_SECRET', s);
-  }
-  return s;
-}
-
-function usuarios_(semCache) {
-  const cache = CacheService.getScriptCache();
-  if (!semCache) {
-    const c = cache.get('usuarios_v1');
-    if (c) return JSON.parse(c);
-  }
-  const sh = planilha_().getSheetByName(CONFIG.ABA_USUARIOS);
-  const mapa = {};
-  if (sh && sh.getLastRow() >= 2) {
-    const cab = cabecalho_(sh);
-    sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues().forEach((l, i) => {
-      const usuario = String(l[cab.usuario] || '').trim().toLowerCase();
-      if (!usuario) return;
-      const ativo = String(l[cab.ativo] || 'SIM').trim().toUpperCase();
-      mapa[usuario] = {
-        usuario: usuario,
-        nome: String(l[cab.nome] || usuario).trim(),
-        senha_hash: String(l[cab.senha_hash] || ''),
-        salt: String(l[cab.salt] || ''),
-        ativo: ['SIM', 'S', 'TRUE', 'ATIVO', '1'].indexOf(ativo) >= 0,
-        linha: i + 2
-      };
-    });
-  }
-  cache.put('usuarios_v1', JSON.stringify(mapa), 120);
-  return mapa;
-}
-
-function listarNomesUsuarios_() {
-  const u = usuarios_(false);
-  return Object.keys(u).filter(k => u[k].ativo).map(k => u[k].nome).sort();
-}
-
-function processarNovasSenhas_() {
-  const sh = planilha_().getSheetByName(CONFIG.ABA_USUARIOS);
-  if (!sh || sh.getLastRow() < 2) return;
-  const cab = cabecalho_(sh);
-  const rng = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn());
-  const vals = rng.getValues();
-  let mudou = false;
-  vals.forEach(l => {
-    const nova = String(l[cab.nova_senha] || '');
-    if (!nova) return;
-    const salt = Utilities.getUuid();
-    l[cab.salt] = salt;
-    l[cab.senha_hash] = hash_(salt + nova);
-    l[cab.nova_senha] = '';
-    if (!String(l[cab.ativo] || '').trim()) l[cab.ativo] = 'SIM';
-    mudou = true;
-  });
-  if (mudou) {
-    rng.setValues(vals);
-    CacheService.getScriptCache().remove('usuarios_v1');
-  }
-}
-
 function hash_(texto) {
   return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8)
     .map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
@@ -932,9 +794,6 @@ function garantirAbas_(ss, forcar) {
   if (!forcar && cache.get('abas_ok_v1')) return;
   garantirAba_(ss, CONFIG.ABA_TRATATIVAS, COLS_TRATATIVAS, COLS_TEXTO_TRATATIVAS);
   garantirAba_(ss, CONFIG.ABA_HISTORICO, COLS_HISTORICO, ['id_avaliacao']);
-  const shU = garantirAba_(ss, CONFIG.ABA_USUARIOS, COLS_USUARIOS, ['usuario', 'nova_senha']);
-  shU.getRange(1, COLS_USUARIOS.indexOf('nova_senha') + 1).setNote(
-    'Digite uma senha provisória aqui. No próximo login ela é criptografada e esta célula é apagada automaticamente.');
   cache.put('abas_ok_v1', '1', 21600);
 }
 

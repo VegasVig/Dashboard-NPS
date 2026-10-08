@@ -49,13 +49,12 @@
     { id: 'resolvidos', rotulo: 'Resolvidos' }
   ];
 
-  const CHAVE_SESSAO = 'vegas_trat_sessao';
+  const CHAVE_NOME = 'vegas_trat_nome'; // nome de quem usa este aparelho (sem login)
   const PREFIXO_RASCUNHO = 'vegas_trat_rascunho_';
   const TITULO_BASE = document.title;
 
   /* -------------------- Estado -------------------- */
   const estado = {
-    token: '', usuario: null,
     itens: [], usuarios: [], resultados: [],
     carregou: false, carregando: false, erro: '', ultimaCarga: 0,
     rapido: 'todos', pagina: 1,
@@ -107,7 +106,7 @@
     if (!CFG.MENSAGEM_WHATSAPP) return '';
     const primeiroNome = String(item.cliente || '').trim().split(/\s+/)[0] || '';
     const nome = primeiroNome ? primeiroNome.charAt(0) + primeiroNome.slice(1).toLowerCase() : '';
-    const resp = (estado.usuario && estado.usuario.nome) || 'a equipe';
+    const resp = nomeAtual() || 'a supervisão';
     return CFG.MENSAGEM_WHATSAPP.replace('{cliente}', nome).replace('{responsavel}', resp);
   }
   function linkWhatsApp(item) {
@@ -133,7 +132,7 @@
 
   /* -------------------- Comunicação com a API -------------------- */
   async function api(acao, dados, opcoes) {
-    const corpo = Object.assign({ acao, token: estado.token }, dados || {});
+    const corpo = Object.assign({ acao, usuario: nomeAtual() }, dados || {});
     let j;
     if (DEMO) {
       j = await window.VegasDemo.api(acao, corpo);
@@ -155,41 +154,19 @@
     if (!j.ok) {
       const e = new Error(j.erro || 'Não foi possível concluir a operação.');
       e.codigo = j.codigo;
-      if (j.codigo === 'AUTH') sair(true);
       throw e;
     }
     return j;
   }
 
-  /* -------------------- Sessão -------------------- */
-  function restaurarSessao() {
-    const s = lerLocal(CHAVE_SESSAO);
-    if (s && s.token && s.exp > Date.now()) { estado.token = s.token; estado.usuario = s.usuario; }
-  }
-
-  async function entrar(usuario, senha) {
-    const j = await api('login', { usuario, senha });
-    estado.token = j.token;
-    estado.usuario = j.usuario;
-    gravarLocal(CHAVE_SESSAO, { token: j.token, usuario: j.usuario, exp: Date.now() + 11.5 * 3600 * 1000 });
-    renderTudo();
-    await carregar();
-    iniciarAtualizacao();
-  }
-
-  function sair(expirou) {
-    estado.token = ''; estado.usuario = null; estado.itens = []; estado.carregou = false; estado.novosVistos = null;
-    gravarLocal(CHAVE_SESSAO, null);
-    clearInterval(estado.timer);
-    if (estado.aberto) fecharModal();
-    document.title = TITULO_BASE;
-    renderTudo();
-    if (expirou) toast('Sua sessão expirou. Entre novamente para continuar.', 'alerta');
-  }
+  /* -------------------- Quem está usando (sem login) -------------------- */
+  // O nome vem do último "Responsável pelo contato" salvo neste aparelho.
+  function nomeAtual() { return String(lerLocal(CHAVE_NOME) || '').trim(); }
+  function lembrarNome(nome) { if (nome) gravarLocal(CHAVE_NOME, String(nome).trim().slice(0, 80)); }
 
   /* -------------------- Carga e atualização -------------------- */
   async function carregar(silencioso) {
-    if (!estado.token || estado.carregando) return;
+    if (!CONFIGURADO || estado.carregando) return;
     estado.carregando = true;
     const primeiraCarga = !estado.carregou;
     if (!silencioso && primeiraCarga) renderLista();
@@ -220,7 +197,7 @@
 
   // Ao voltar do WhatsApp para o navegador, atualiza na hora.
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && estado.token && Date.now() - estado.ultimaCarga > 20000) carregar(true);
+    if (!document.hidden && CONFIGURADO && Date.now() - estado.ultimaCarga > 20000) carregar(true);
   });
 
   function avisarNovas() {
@@ -294,7 +271,7 @@
     const detr = r.filter(x => x.nota <= 6).length;
     const pct = n => total ? `${Math.round((n / total) * 100)}% das respostas` : '—';
 
-    const logado = !!estado.token && estado.carregou;
+    const logado = estado.carregou;
     const base = logado ? filtrar(estado.itens, true) : [];
     const qPend = base.filter(i => st(i.status).grupo === 'pendente').length;
     const qAnd = base.filter(i => st(i.status).grupo === 'andamento').length;
@@ -306,7 +283,7 @@
       .map(i => digitos(i.telefone) || norm(i.cliente))).size;
 
     const valor = n => (logado ? n : '—');
-    const subTrat = txt => (logado ? txt : (CONFIGURADO ? 'Entre para ver' : 'Módulo não configurado'));
+    const subTrat = txt => (logado ? txt : (CONFIGURADO ? (estado.erro ? 'Sem conexão' : 'Carregando…') : 'Módulo não configurado'));
 
     alvo.innerHTML = `
       <div class="kpi"><span class="kpi-rotulo">📊 Total de respostas</span><span class="kpi-valor">${total}</span><span class="kpi-sub">${estado.modoFuncionario ? 'Pesquisa interna' : 'Período e filtros atuais'}</span></div>
@@ -327,7 +304,7 @@
   function renderAlerta() {
     const alvo = $('#tratAlerta');
     if (!alvo) return;
-    const lista = estado.token ? pendentes() : [];
+    const lista = pendentes();
     document.title = lista.length ? `(${lista.length}) ${TITULO_BASE}` : TITULO_BASE;
     if (!lista.length) { alvo.innerHTML = ''; alvo.className = ''; return; }
 
@@ -371,28 +348,11 @@
   function renderPainel() {
     const alvo = $('#tratPainel');
     if (!alvo) return;
-    const demo = DEMO ? '<div class="trat-demo">Modo demonstração: dados fictícios, nada é gravado. Use qualquer usuário e senha.</div>' : '';
+    const demo = DEMO ? '<div class="trat-demo">Modo demonstração: dados fictícios, nada é gravado.</div>' : '';
 
     if (!CONFIGURADO) {
       alvo.innerHTML = `<div class="tp-login"><div><h2>Clientes para Tratativa</h2>
         <p>O módulo de tratativas ainda não está conectado. Siga o guia <strong>TRATATIVAS.md</strong> e confira a URL em <code>tratativas/tratativas.js</code> (API_URL).</p></div></div>`;
-      return;
-    }
-
-    if (!estado.token) {
-      alvo.innerHTML = `${demo}
-        <div class="tp-login">
-          <div>
-            <h2>Clientes para Tratativa</h2>
-            <p>Área restrita à supervisão. Entre com seu usuário para ver os clientes que deram nota até 7, falar com eles pelo WhatsApp e registrar a tratativa.</p>
-          </div>
-          <div class="tp-login-form">
-            <input class="trat-campo" id="tl-usuario" type="text" autocomplete="username" autocapitalize="none" placeholder="Usuário" aria-label="Usuário">
-            <input class="trat-campo" id="tl-senha" type="password" autocomplete="current-password" placeholder="Senha" aria-label="Senha">
-            <button type="button" class="tb tb-primario" id="tl-entrar">Entrar</button>
-            <p class="tp-erro" id="tl-erro" role="alert"></p>
-          </div>
-        </div>`;
       return;
     }
 
@@ -406,9 +366,7 @@
       <div class="tp-cabecalho">
         <h2>Clientes para Tratativa<span class="tp-qtd" id="tp-qtd"></span></h2>
         <div class="tp-acoes">
-          <span class="tp-usuario">👤 <strong>${esc(estado.usuario?.nome || '')}</strong></span>
           <button type="button" class="tb" id="tp-atualizar" title="Buscar novas avaliações">↻ Atualizar</button>
-          <button type="button" class="tb" id="tp-sair">Sair</button>
         </div>
       </div>
       <div class="tp-rapidos" role="group" aria-label="Filtro rápido" id="tp-rapidos"></div>
@@ -502,7 +460,7 @@
     $$('.card-comentario[data-trat-chave]').forEach(card => {
       const atual = card.querySelector('.trat-selo');
       if (atual) atual.remove();
-      const it = estado.token && mapa.get(card.dataset.tratChave);
+      const it = mapa.get(card.dataset.tratChave);
       if (!it) return;
       const s = st(it.status);
       card.insertAdjacentHTML('beforeend',
@@ -542,11 +500,6 @@
   }
 
   async function abrir(id) {
-    if (!estado.token) {
-      $('#tratPainel')?.scrollIntoView({ behavior: 'smooth' });
-      toast('Entre com seu usuário para abrir a tratativa.', 'alerta');
-      return;
-    }
     const resumo = estado.itens.find(i => i.id === id);
     if (!resumo) return;
     estado.aberto = { item: Object.assign({ imagens: [] }, resumo), historico: [], miniaturas: {}, carregando: true };
@@ -619,7 +572,7 @@
 
   function corpoModal(i) {
     const wa = linkWhatsApp(i);
-    const resp = i.responsavel || (estado.usuario && estado.usuario.nome) || '';
+    const resp = i.responsavel || nomeAtual();
     const resultados = estado.resultados.length ? estado.resultados : [];
     const radio = s => `<label data-cor="${STATUS[s].cor}"><input type="radio" name="tm-status" value="${s}" ${i.status === s || (i.status === 'NOVO' && s === 'AGUARDANDO_CONTATO') ? 'checked' : ''}><span>${STATUS[s].rotulo}</span></label>`;
 
@@ -780,6 +733,7 @@
       const miniaturas = a.miniaturas;
       a.item = j.item; a.historico = j.historico; a.miniaturas = miniaturas;
       gravarLocal(PREFIXO_RASCUNHO + j.item.id, null);
+      lembrarNome(c.responsavel);
       mesclarNaLista(j.item);
       // Re-renderiza o corpo mantendo a rolagem
       const rol = $('#tm-corpo', modal).scrollTop;
@@ -1034,7 +988,7 @@
   function registrarWhatsApp(e, link) {
     const id = link.dataset.wa;
     const item = estado.itens.find(i => i.id === id) || (estado.aberto && estado.aberto.item);
-    if (estado.token && id) api('registrarEvento', { id, evento: 'whatsapp' }, { keepalive: true }).catch(() => {});
+    if (id) api('registrarEvento', { id, evento: 'whatsapp' }, { keepalive: true }).catch(() => {});
     if (estado.aberto && estado.aberto.item.id === id) { preencherContatoAgora(); salvarRascunho(); }
     // No computador abre direto o WhatsApp Web; no celular o wa.me abre o aplicativo.
     if (!ehCelular() && item) {
@@ -1046,10 +1000,7 @@
   }
 
   function irParaRapido(r) {
-    if (!estado.token) {
-      $('#tratPainel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
+    if (!estado.carregou) return;
     estado.rapido = r; estado.pagina = 1;
     estado.filtros.status = ''; estado.filtros.situacao = '';
     renderPainel();
@@ -1072,8 +1023,6 @@
     const t = e.target.closest('button');
     if (!t) return;
     switch (t.id) {
-      case 'tl-entrar': return tentarEntrar();
-      case 'tp-sair': return sair(false);
       case 'tp-atualizar': return carregar();
       case 'tp-tentar': estado.erro = ''; return carregar();
       case 'tp-carregar-mais': estado.pagina++; return renderLista();
@@ -1136,7 +1085,6 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && (e.target.id === 'tl-usuario' || e.target.id === 'tl-senha')) { e.preventDefault(); tentarEntrar(); }
     if (lightbox && lightbox.open) {
       if (e.key === 'ArrowLeft') navegarLightbox(-1);
       if (e.key === 'ArrowRight') navegarLightbox(1);
@@ -1153,18 +1101,6 @@
     if (Math.abs(dx) > 60 && !$('#lb-area', lightbox)?.classList.contains('zoom')) navegarLightbox(dx < 0 ? 1 : -1);
   }, { passive: true });
 
-  async function tentarEntrar() {
-    const u = $('#tl-usuario'), s = $('#tl-senha'), b = $('#tl-entrar'), err = $('#tl-erro');
-    if (!u.value.trim() || !s.value) { err.textContent = 'Informe usuário e senha.'; return; }
-    b.disabled = true; b.textContent = 'Entrando…'; err.textContent = '';
-    try {
-      await entrar(u.value.trim(), s.value);
-    } catch (e) {
-      err.textContent = e.message;
-      b.disabled = false; b.textContent = 'Entrar';
-    }
-  }
-
   /* -------------------- Integração com o dashboard existente -------------------- */
   window.VegasTratativas = {
     /** Chamado pelo dashboard sempre que a lista de respostas é filtrada. */
@@ -1180,7 +1116,6 @@
 
   /* -------------------- Início -------------------- */
   criarDialogs();
-  restaurarSessao();
   renderTudo();
-  if (estado.token) { carregar(); iniciarAtualizacao(); }
+  if (CONFIGURADO) { carregar(); iniciarAtualizacao(); }
 })();

@@ -9,11 +9,10 @@ Tudo fica no **mesmo Code.gs** e na **mesma URL** que a pesquisa já usa:
 ```
 Code.gs (um único arquivo, uma única URL)
 ├── doPost  ── formulário da pesquisa (FormData)  →  grava em "Respostas" / "Respostas Niteroi" / "Respostas Funcionários"  (igual a antes)
-│           └─ JSON do Dashboard com "acao"        →  API de tratativas (exige login)
+│           └─ JSON do Dashboard com "acao"        →  API de tratativas
 ├── doGet   ── ?cidade=vr|niteroi|funcionarios     →  dados dos gráficos  (igual a antes)
 └── gatilho a cada 5 min → notas <= 7 viram linhas na aba "Tratativas"
         ├── aba "Tratativas_Historico"  → tudo o que aconteceu (nunca é apagado)
-        ├── aba "Tratativas_Usuarios"   → quem pode entrar
         └── Google Drive                → prints das conversas (privados)
 ```
 
@@ -25,7 +24,7 @@ Regra do alerta: `NOTA <= 7 → gera tratativa`. Notas 8, 9 e 10 entram nos indi
 
 ## Instalação (uma vez, cerca de 15 minutos)
 
-> ⚠️ **A ordem importa.** Publique o Code.gs novo (passos 1 a 5) **antes** de enviar o Dashboard novo ao GitHub (passo 6). Se o Dashboard novo for ao ar antes, o Code.gs antigo vai receber as tentativas de login como se fossem respostas da pesquisa e gravar linhas vazias na aba "Respostas".
+> ⚠️ **A ordem importa.** Publique o Code.gs novo (passos 1 a 5) **antes** de enviar o Dashboard novo ao GitHub (passo 6). Se o Dashboard novo for ao ar antes, o Code.gs antigo vai receber as chamadas do Dashboard como se fossem respostas da pesquisa e gravar linhas vazias na aba "Respostas".
 
 ### 1. Faça uma cópia de segurança do Code.gs atual
 Na planilha: **Extensões → Apps Script**. Copie todo o conteúdo do `Code.gs` atual e guarde num arquivo de texto. Se algo der errado, basta colar de volta.
@@ -51,7 +50,7 @@ No bloco `CONFIG` (seção TRATATIVAS, perto do meio do arquivo), confira:
 ### 4. Rode a configuração inicial e autorize
 No topo do editor, escolha a função **`configurarTratativas`** e clique em **Executar**. O Google vai pedir uma autorização nova (agora inclui o **Google Drive**). Aceite.
 
-Isso cria as abas `Tratativas`, `Tratativas_Historico` e `Tratativas_Usuarios`, a pasta `NPS Vegas Vigilância` no Drive e um gatilho que verifica novas respostas a cada 5 minutos.
+Isso cria as abas `Tratativas` e `Tratativas_Historico`, a pasta `NPS Vegas Vigilância` no Drive e um gatilho que verifica novas respostas a cada 5 minutos.
 
 ### 5. Publique como NOVA VERSÃO da implantação existente
 **Implantar → Gerenciar implantações** → na implantação atual, clique no **lápis (editar)** → em *Versão* escolha **Nova versão** → **Implantar**.
@@ -60,17 +59,10 @@ Isso cria as abas `Tratativas`, `Tratativas_Historico` e `Tratativas_Usuarios`, 
 
 Teste rápido: abra a pesquisa, envie uma resposta e veja se chegou na planilha como sempre.
 
-### 6. Cadastre as supervisoras e publique o Dashboard
-1. Na aba **`Tratativas_Usuarios`**, uma linha por pessoa:
+### 6. Publique o Dashboard
+Copie os arquivos do Dashboard para o repositório, faça commit e push.
 
-   | usuario | nome | nova_senha | senha_hash | salt | ativo |
-   |---|---|---|---|---|---|
-   | ana | Ana Paula | SenhaProvisoria2026 | *(vazio)* | *(vazio)* | SIM |
-
-   A senha digitada em **`nova_senha`** é criptografada no primeiro login e a célula é apagada. Use 8+ caracteres.
-2. Copie os arquivos do Dashboard para o repositório, faça commit e push.
-
-O Dashboard já vem apontando para a mesma URL usada hoje (`API_URL` em `tratativas/tratativas.js`). Abra o Dashboard e entre com o usuário cadastrado.
+O Dashboard já vem apontando para a mesma URL usada hoje (`API_URL` em `tratativas/tratativas.js`). Não há usuário nem senha: ao abrir o Dashboard, as tratativas já aparecem.
 
 ---
 
@@ -82,6 +74,8 @@ O Dashboard já vem apontando para a mesma URL usada hoje (`API_URL` em `tratati
 4. Preencha responsável, data/hora (preenchidas sozinhas ao escolher um status de contato), problema, solução, resultado e observação.
 5. **📸 Adicionar prints**: selecione vários de uma vez, ou cole com Ctrl+V no computador. As imagens são reduzidas e comprimidas no próprio aparelho antes do envio.
 6. **Resolvido** exige a solução apresentada. Se não houver prints, o sistema pergunta antes de concluir.
+
+O nome usado em "Responsável pelo contato" fica lembrado no aparelho e já vem preenchido nas próximas tratativas. É esse nome que aparece no histórico ("Alerta visualizado por…", "Print anexado…"). Enquanto ninguém tiver salvo um responsável naquele aparelho, o histórico registra "Supervisão".
 
 O que foi digitado e ainda não salvo fica guardado no aparelho. Se o celular recarregar a página ao voltar do WhatsApp, o texto é recuperado.
 
@@ -119,7 +113,7 @@ NPS Vegas Vigilância/
 ```
 
 - Arquivos e pastas ficam **privados** na conta que publicou o Apps Script. Nenhum link público é criado.
-- O Dashboard recebe as imagens pela API, apenas com login, e só imagens que pertencem àquela tratativa.
+- O Dashboard recebe as imagens pela API, e só imagens que pertencem àquela tratativa. Nenhum link do Drive fica exposto.
 - Na tela aparecem só miniaturas; a imagem grande é baixada ao clicar. As miniaturas só carregam quando a tratativa é aberta.
 - Excluir um print o envia para a **lixeira do Drive** (recuperável por 30 dias) e registra no histórico.
 
@@ -143,28 +137,24 @@ NPS Vegas Vigilância/
 
 | Tarefa | Como |
 |---|---|
-| Trocar senha | Digite a nova em `nova_senha`. As sessões abertas com a senha antiga deixam de valer. |
-| Bloquear acesso | Coloque `NAO` em `ativo` (vale em até 2 minutos). |
 | Alterar o Code.gs | Cole a nova versão → **Implantar → Gerenciar implantações → editar (lápis) → Versão: Nova versão**. A URL continua a mesma. |
 | Reprocessar respostas | Execute `ressincronizarTudo` no editor. Não duplica tratativas. |
 | Ver erros | No editor do Apps Script → **Execuções**. |
 
-Sessões duram 12 horas. Após 5 senhas erradas, o usuário fica bloqueado por 15 minutos.
-
 ## Modo demonstração
 
-Abra `index.html?demo=1` para ver tudo funcionando com dados fictícios, sem tocar na planilha nem no Drive. Bom para treinar a equipe. Qualquer usuário e senha entram.
+Abra `index.html?demo=1` para ver tudo funcionando com dados fictícios, sem tocar na planilha nem no Drive. Bom para treinar a equipe.
 
 ## Problemas comuns
 
-- **"Resposta inválida do servidor" ao entrar**: o Code.gs novo ainda não foi publicado como *Nova versão* (passo 5).
+- **"Resposta inválida do servidor" no painel de tratativas**: o Code.gs novo ainda não foi publicado como *Nova versão* (passo 5).
 - **Apareceram linhas vazias na aba "Respostas"**: o Dashboard novo foi ao ar antes do passo 5. Apague essas linhas (sem nome e sem nota) e conclua o passo 5.
 - **"Authorization is required" / pesquisa parou de gravar**: faltou executar `configurarTratativas` e autorizar o Drive (passo 4) antes de publicar. Execute, autorize e publique uma nova versão de novo.
 - **Nenhuma tratativa aparece**: confira `DATA_INICIO_TRATATIVAS` e os nomes das abas em `ABAS_CLIENTES`. Depois execute `ressincronizarTudo`.
 - **Erro de sintaxe ao salvar** (`const`, `=>`): o projeto está no runtime antigo. Ajuste para `V8` (passo 2).
 
-## ⚠️ Recomendação de segurança (API antiga)
+## ⚠️ Sobre o acesso
 
-O `doGet` da pesquisa responde a `?cidade=vr` com **nomes e telefones de todos os clientes, para qualquer pessoa que tenha o link**. Isso já acontecia antes desta atualização e não foi alterado para não arriscar a pesquisa em produção. Quando possível, vale proteger esse `doGet` com o mesmo login das tratativas.
+As tratativas **não têm login**: quem tiver o link do Dashboard vê nomes, telefones, comentários e prints das conversas, e também consegue registrar e alterar tratativas. É o mesmo modelo do Dashboard atual, cujo `doGet` já devolve nomes e telefones a quem tiver o link. Por isso, evite divulgar o endereço do Dashboard fora da equipe. Se no futuro quiserem restringir o acesso, dá para acrescentar uma proteção sem mudar o restante.
 
-Outro ponto antigo, também mantido como estava: o `doPost` da pesquisa grava o comentário com `appendRow` sem tratamento, então um texto começando com `=` vira fórmula na planilha. As abas de tratativas já se protegem disso.
+Ponto antigo mantido como estava: o `doPost` da pesquisa grava o comentário com `appendRow` sem tratamento, então um texto começando com `=` vira fórmula na planilha. As abas de tratativas já se protegem disso.
