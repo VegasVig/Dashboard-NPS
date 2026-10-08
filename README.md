@@ -29,6 +29,15 @@ O dashboard apresenta informações em tempo real com visualização intuitiva e
 ✅ Interface moderna e intuitiva  
 ✅ Atualização dinâmica dos dados  
 ✅ Responsivo para desktop e mobile  
+✅ Alerta automático para notas de 0 a 7 (clientes insatisfeitos)  
+✅ Lista "Clientes para Tratativa" com status por cores  
+✅ Contato direto pelo WhatsApp (app no celular, WhatsApp Web no computador)  
+✅ Registro da tratativa com histórico permanente  
+✅ Prints da conversa armazenados no Google Drive (privados)  
+✅ Indicadores de tratativas: pendentes, em andamento, resolvidas, taxa de resolução e tempo médio  
+✅ Acesso às tratativas restrito por login  
+
+📖 Instalação e uso das tratativas: [TRATATIVAS.md](./TRATATIVAS.md) · Demonstração: `index.html?demo=1`  
 
 ---
 

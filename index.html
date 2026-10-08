@@ -17,6 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="./tratativas/tratativas.css?v=1">
 
   <style>
     :root {
@@ -261,6 +262,11 @@
 
   <div class="container">
 
+    <!-- Tratativas: alerta de notas <= 7, indicadores e lista de clientes -->
+    <div id="tratAlerta"></div>
+    <section id="kpis" class="kpis" aria-label="Indicadores"></section>
+    <section id="tratPainel" class="painel trat-painel" aria-label="Clientes para Tratativa"></section>
+
     <div class="painel grafico">
       <h2>Distribuição das Notas</h2>
       <div class="grafico-area"><canvas id="graficoPizza"></canvas></div>
@@ -344,6 +350,8 @@
 
   <button type="button" class="tema-fab" id="btnTema" onclick="alternarTema()"></button>
 
+  <script src="./tratativas/demo.js?v=1"></script>
+  <script src="./tratativas/tratativas.js?v=1"></script>
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbynVCaW7QoKzgkmZG5d1U4lUdYPy_0gjYLmntVx5b-UdrhRjshZ2iz-W_frksVxlq8q3Q/exec";
 
@@ -421,8 +429,13 @@
       if (abaSelecionada === "Respostas Niteroi") cidade = "niteroi";
       else if (abaSelecionada === "Respostas Funcionários") cidade = "funcionarios";
 
-      const resposta = await fetch(`${API_URL}?cidade=${cidade}`);
-      const dados = await resposta.json();
+      let dados;
+      if (window.VegasDemo) {
+        dados = window.VegasDemo.respostas(cidade);
+      } else {
+        const resposta = await fetch(`${API_URL}?cidade=${cidade}`);
+        dados = await resposta.json();
+      }
       const isFunc = cidade === "funcionarios";
 
       return dados.reverse().map(item => {
@@ -507,6 +520,7 @@
 
         const card = document.createElement("div");
         card.className = "card-comentario";
+        if (!r.isFunc && r.nota <= 7 && window.VegasTratativas) card.dataset.tratChave = VegasTratativas.chave(r.telefone, r.nota, r.data);
         card.innerHTML = `
           <div class="nota">${ICO_ESTRELA}Nota: ${esc(r.nota)}</div>
           <div class="nome">${esc(r.nome)}</div>
@@ -553,6 +567,7 @@
       preencherComentarios(filtradas);
       calcularNPS(filtradas);
       gerarGraficoPizza(filtradas);
+      if (window.VegasTratativas) VegasTratativas.atualizarRespostas(filtradas, modoFuncionario);
     }
 
     async function carregarDashboard() {
@@ -563,6 +578,7 @@
       preencherComentarios(respostasOriginais);
       calcularNPS(respostasOriginais);
       gerarGraficoPizza(respostasOriginais);
+      if (window.VegasTratativas) VegasTratativas.atualizarRespostas(respostasOriginais, modoFuncionario);
     }
 
     document.getElementById("filtroCidade").addEventListener("change", async function () {
